@@ -2,6 +2,7 @@ import argparse
 import os
 import torch
 from exp.exp_main import Exp_Main
+from exp.exp_main_test import Exp_Main_Test
 import random
 import numpy as np
 
@@ -79,6 +80,9 @@ parser.add_argument('--use_multi_gpu', action='store_true', help='use multiple g
 parser.add_argument('--devices', type=str, default='0,1,2,3', help='device ids of multile gpus')
 parser.add_argument('--test_flop', action='store_true', default=False, help='See utils/tools for usage')
 
+# test_train_num
+parser.add_argument('--test_train_num', type=int, default=1, help='how many samples to be trained during test')
+
 args = parser.parse_args()
 
 args.use_gpu = True if torch.cuda.is_available() and args.use_gpu else False
@@ -92,7 +96,8 @@ if args.use_gpu and args.use_multi_gpu:
 print('Args in experiment:')
 print(args)
 
-Exp = Exp_Main
+# Exp = Exp_Main
+Exp = Exp_Main_Test
 
 if args.is_training:
     for ii in range(args.itr):
@@ -116,12 +121,19 @@ if args.is_training:
             args.des, ii)
 
         exp = Exp(args)  # set experiments
-        print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
-        exp.train(setting)
+        # print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
+        # exp.train(setting)
 
         if not args.train_only:
-            print('>>>>>>>testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
-            exp.test(setting)
+            print('>>>>>>>normal testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
+            # exp.test(setting)
+            exp.test(setting, test=1, flag="test")
+
+            # 只对最后的全连接层projection层进行fine-tuning
+            print('>>>>>>>my testing with test-time training : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
+            # exp.my_test(setting, is_training_part_params=True, use_adapted_model=True, test_train_epochs=1)
+            exp.my_test(setting, test=1, is_training_part_params=True, use_adapted_model=True, test_train_epochs=1)
+
 
         if args.do_predict:
             print('>>>>>>>predicting : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
