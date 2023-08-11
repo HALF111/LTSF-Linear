@@ -80,8 +80,34 @@ parser.add_argument('--use_multi_gpu', action='store_true', help='use multiple g
 parser.add_argument('--devices', type=str, default='0,1,2,3', help='device ids of multile gpus')
 parser.add_argument('--test_flop', action='store_true', default=False, help='See utils/tools for usage')
 
+
 # test_train_num
-parser.add_argument('--test_train_num', type=int, default=1, help='how many samples to be trained during test')
+parser.add_argument('--test_train_num', type=int, default=10, help='how many samples to be trained during test')
+parser.add_argument('--adapted_lr_times', type=float, default=1, help='the times of lr during adapted')  # adaptation时的lr是原来的lr的几倍？
+parser.add_argument('--adapted_batch_size', type=int, default=1, help='the batch_size for adaptation use')  # adaptation时的数据集取的batch_size设置为多大
+parser.add_argument('--test_train_epochs', type=int, default=1, help='the batch_size for adaptation use')  # adaptation时的数据集取的batch_size设置为多大
+parser.add_argument('--run_train', action='store_true')
+parser.add_argument('--run_test', action='store_true')
+parser.add_argument('--run_test_batchsize1', action='store_true')
+parser.add_argument('--run_adapt', action='store_true')
+parser.add_argument('--run_calc', action='store_true')
+parser.add_argument('--run_get_grads', action='store_true')
+parser.add_argument('--run_get_lookback_data', action='store_true')
+parser.add_argument('--run_select_with_distance', action='store_true')
+# selected_data_num表示从过去test_train_num个样本中按照距离挑选出最小的多少个出来
+# 因此这里要求必须有lookback_data_num <= test_train_num成立
+parser.add_argument('--selected_data_num', type=int, default=5)
+parser.add_argument('--adapt_part_channels', action='store_true')
+
+# 改用更近（填0）或更远（周期性）的数据做adaptation
+parser.add_argument('--use_nearest_data', action='store_true')
+parser.add_argument('--use_further_data', action='store_true')
+# 理论上当adapt_start_pos == pred_len时，本方法与原来方法相同;
+# 但是但是由于实现的原因，要求必须保证：
+# 1.当use_nearest_data时，要求保证adapt_start_pos严格小于pred_len
+# 2.当use_further_data时，要求保证adapt_start_pos严格大于等于pred_len
+parser.add_argument('--adapt_start_pos', type=int, default=1)
+
 
 args = parser.parse_args()
 
@@ -121,18 +147,31 @@ if args.is_training:
             args.des, ii)
 
         exp = Exp(args)  # set experiments
-        # print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
-        # exp.train(setting)
+        if args.run_train:
+            print('>>>>>>>start training : {}>>>>>>>>>>>>>>>>>>>>>>>>>>'.format(setting))
+            exp.train(setting)
 
         if not args.train_only:
-            print('>>>>>>>normal testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
-            # exp.test(setting)
-            exp.test(setting, test=1, flag="test")
+            if args.run_test:
+                print('>>>>>>>normal testing : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
+                # exp.test(setting)
+                exp.test(setting, test=1, flag="test")
+
+            if args.run_test_batchsize1:
+                print('>>>>>>>normal testing but batch_size is 1 : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
+                # exp.test(setting, flag="test_with_batchsize_1")
+                exp.test(setting, test=1, flag="test_with_batchsize_1")
 
             # 只对最后的全连接层projection层进行fine-tuning
-            print('>>>>>>>my testing with test-time training : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
-            # exp.my_test(setting, is_training_part_params=True, use_adapted_model=True, test_train_epochs=1)
-            exp.my_test(setting, test=1, is_training_part_params=True, use_adapted_model=True, test_train_epochs=1)
+            if args.run_adapt:
+                print('>>>>>>>my testing with test-time training : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
+                # exp.my_test(setting, is_training_part_params=True, use_adapted_model=True, test_train_epochs=1)
+                exp.my_test(setting, test=1, is_training_part_params=True, use_adapted_model=True, test_train_epochs=1)
+
+            if args.run_select_with_distance:
+                # 只对最后的全连接层projection层进行fine-tuning
+                print('>>>>>>>my testing with test-time training : {}<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'.format(setting))
+                exp.select_with_distance(setting, test=1, is_training_part_params=True, use_adapted_model=True, test_train_epochs=args.test_train_epochs)
 
 
         if args.do_predict:

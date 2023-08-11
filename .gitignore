@@ -9,3 +9,5 @@ logs/
 
 __pycache__
 /checkpoints
+
+*.csv
